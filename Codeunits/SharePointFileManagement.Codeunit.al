@@ -13,6 +13,7 @@ codeunit 51010 "SharePoint File Management"
         FileAlreadyExistErr: Label 'The file name %1 already exists.', Comment = '%1 File Path';
         InvalidFileNameErr: Label 'Invalid file name %1.', Comment = '%1 File Name';
         NoFileExtensionErr: Label 'No file %1 extension specified.', Comment = '%1 File Name';
+        AllFilesFilterTxt: Label '*.*', Locked = true;
 
 
     //Gets "SharePoint Connection Setup" table record to initialize connection with SharePoint
@@ -36,7 +37,6 @@ codeunit 51010 "SharePoint File Management"
         SharePointClient.Initialize(SharePointUrl, Authorization); //Initializes the client
         if not SharePointClient.GetLists(SharePointList) then //We need to perform at least one action to get diagnostics data
             ErrorCheck('lists get'); //Optional: used to get diagnostics, useful for debugging errors
-
         exit(true);
     end;
 
@@ -72,30 +72,29 @@ codeunit 51010 "SharePoint File Management"
     end;
 
     //Replaces File Management - UploadFile
-    procedure UploadFile(DialogTitle: Text[50]; DirectoryPath: Text) FilePath: Text
-    var
-        InStream: InStream;
-        SharePointFile: Record "SharePoint File" temporary;
-        SharePointFolder: Record "SharePoint Folder" temporary;
+    procedure UploadFile(DialogTitle: Text[50]; DirectoryPath: Text) SharePointFileName: Text
     begin
-        UploadIntoStream(DialogTitle, '', '', FilePath, InStream);
-
-        if SaveFile(DirectoryPath, FileMgt.GetFileName(FilePath), InStream, SharePointFile) then
-            FilePath := SharePointFile."Server Relative Url";
+        SharePointFileName := UploadFileWithFilters(DialogTitle, DirectoryPath, '', AllFilesFilterTxt);
     end;
 
     //Replaces File - Upload, File Management - UploadFileWithFilters
-    procedure UploadFileWithFilters(DialogTitle: Text[50]; DirectoryPath: Text; Filter: Text) FilePath: Text
+    procedure UploadFileWithFilters(DialogTitle: Text[50]; DirectoryPath: Text; Filter: Text; ExtFilter: Text) SharePointFileName: Text
     var
         InStream: InStream;
         SharePointFile: Record "SharePoint File" temporary;
+        FileName: Text;
+        Uploaded: Boolean;
     begin
-        UploadIntoStream(DialogTitle, '', Filter, FilePath, InStream);
+        UploadIntoStream(DialogTitle, '', Filter, FileName, InStream);
 
-        if SaveFile(DirectoryPath, FileMgt.GetFileName(FilePath), InStream, SharePointFile) then
-            FilePath := SharePointFile."Server Relative Url";
+        Uploaded := SaveFile(DirectoryPath, FileName, InStream, SharePointFile);
+        if Uploaded then
+            FileMgt.ValidateFileExtension(FileName, ExtFilter);
+        if Uploaded then
+            exit(SharePointFile."Server Relative Url");
+
+        exit('');
     end;
-
 
     //Replaces File - Create
     procedure CreateFile(FilePath: Text; InStream: InStream): Boolean
@@ -138,11 +137,14 @@ codeunit 51010 "SharePoint File Management"
 
     //Replaces File - Download, File Management - DownloadHandler
     procedure DownloadFile(FromFilePath: Text; DialogTitle: Text; ToFileName: Text) Downloaded: Boolean
+    var
+        FileExt: Text;
     begin
         if not ConnectionIsInitialized() then
             InitializeConnection();
 
         FromFilePath := GetRelativeUrl(FromFilePath);
+        FileExt := FileMgt.GetExtension(FileMgt.GetFileName(FromFilePath));
 
         if not FileExists(FromFilePath) then
             Error(FileDoesNotExistErr, FromFilePath);

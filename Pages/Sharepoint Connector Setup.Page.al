@@ -145,6 +145,8 @@ page 51112 "SharePoint Connector Setup"
 
                     SharePointMgt.GetDirectoryFoldersList(SharePointFolder, DirectoryPath);
                     SharePointMgt.GetDirectoryFilesList(SharePointFile, DirectoryPath);
+                    if SharePointMgt.IsDirectoryEmpty(DirectoryPath) then
+                        Message('Directory is empty');
 
                     if SharePointFolder.FindSet() then begin
                         repeat
@@ -184,7 +186,7 @@ page 51112 "SharePoint Connector Setup"
                 var
                     FilePath: Text;
                 begin
-                    SharePointMgt.UploadFile('Dialog ', DirectoryPath);
+                    FilePath := SharePointMgt.UploadFile('Dialog ', DirectoryPath);
                     if not (FilePath = '') then begin
                         Message('File - %1 sucessfully uploaded to %2!', FilePath, DirectoryPath);
                     end;
@@ -199,7 +201,7 @@ page 51112 "SharePoint Connector Setup"
                 var
                     FilePath: Text;
                 begin
-                    SharePointMgt.UploadFileWithFilters('My Dialog ', DirectoryPath, 'Text file (*.txt)|*.txt');
+                    FilePath := SharePointMgt.UploadFileWithFilters('My Dialog ', DirectoryPath, 'Text file (*.txt)|*.txt', '*.txt');
                     if not (FilePath = '') then begin
                         Message('Text file - %1 sucessfully uploaded to %2!', FilePath, DirectoryPath);
                     end;
@@ -277,9 +279,8 @@ page 51112 "SharePoint Connector Setup"
                     OS := TempBlob.CreateOutStream();
                     OS.Write(FileContents);
                     IS := TempBlob.CreateInStream();
-
-                    FilePath := SharePointMgt.CreateFile(DirectoryPath, FileName, IS);
-                    if not (FilePath = '') then
+                    FilePath := DirectoryPath + '/' + FileName;
+                    if SharePointMgt.CreateFile(FilePath, IS) then
                         Message('File - %1 sucessfully created!', FilePath);
                 end;
             }
